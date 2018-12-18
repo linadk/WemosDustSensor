@@ -16,6 +16,8 @@ Adafruit_SSD1306 OLED(OLED_RESET);
 #define MODE_GRAMS 2
 #define MODE_GRAMS_CF0 3
 #define MODE_INFO 4
+#define MODE_AWS_INFO 5
+#define NUM_TOTAL_MODES 5
 
 // Toggle Pin
 const int togglePin = D7;     // the number of the pushbutton pin
@@ -25,7 +27,7 @@ unsigned long lastDebounceTime = 0;
 unsigned long debounceDelay = 500;
 
 // Wifi 
-const char* ssid = "YOUR_WIFI_SSID";
+const char* ssid = "YOUR_SSID";
 const char* password = "YOUR_WIFI_PASS";
 #define WIFI_CONNECT_ATTEMPTS_INTERVAL 500 // Wait 500ms intervals for wifi connection
 #define WIFI_CONNECT_MAX_ATTEMPTS 10 // Number of attempts/intervals to wait
@@ -35,6 +37,7 @@ Esp8266HttpClient http_client;
 Esp8266DateTimeProvider dateTimeProvider;
 AmazonIOTClient iot_client;
 ActionError actionError;
+String shadow;
 
 byte dispMode = MODE_TOTALS;
  
@@ -92,7 +95,7 @@ void DisplayToggle(){
 
       // Switch display
       lastDebounceTime = millis();
-      if(dispMode >= 4){
+      if(dispMode >= NUM_TOTAL_MODES){
         dispMode = 1;
         return;
       }
@@ -104,7 +107,6 @@ void DisplayToggle(){
 }
  
 void loop() {
-
   DisplayToggle();
   
   if (pms.read(data))
@@ -115,6 +117,7 @@ void loop() {
     // Render our displays
     switch(dispMode){
       case MODE_TOTALS:
+          OLED.setTextWrap(false);
           OLED.println("Total particles");
 
           // 0.3-0.5
@@ -132,6 +135,7 @@ void loop() {
           break;
           
       case MODE_GRAMS:
+          OLED.setTextWrap(false);
           OLED.println("ug/m^3 (Atmos.)");
           OLED.print("PM 1.0 (ug/m3): ");
           OLED.println(data.PM_AE_UG_1_0);
@@ -145,6 +149,7 @@ void loop() {
 
           break;
       case MODE_GRAMS_CF0:
+          OLED.setTextWrap(false);
           OLED.println("ug/m^3 (CF=1)");
           OLED.print("PM 1.0 (ug/m3): ");
           OLED.println(data.PM_AE_UG_1_0);
@@ -157,6 +162,7 @@ void loop() {
 
           break;
       case MODE_INFO:
+        OLED.setTextWrap(false);
         OLED.println("Info");
         OLED.print("IP: ");
         OLED.println(WiFi.localIP());
@@ -166,6 +172,13 @@ void loop() {
         OLED.println(WiFi.status() == WL_CONNECTED);
         
         break;
+
+      case MODE_AWS_INFO:
+        OLED.setTextWrap(true);
+        OLED.println("AWS Info:");
+        OLED.println(shadow);
+        OLED.println(actionError);
+        break;
       
       default:
           OLED.println(dispMode);
@@ -174,6 +187,7 @@ void loop() {
     }
 
     OLED.display();
+    PushAWS();
     delay(0.25);
 
   }
@@ -206,6 +220,16 @@ bool InitWifi(){
   {
     return true;
   }
+}
+
+void PushAWS(){
+  shadow = "";
+  shadow = "{\"state\":{\"reported\":{\"test_value1\":" + String(data.PM_TOTALPARTICLES_0_5) +
+                                    ", \"test_value2\":" + String(data.PM_TOTALPARTICLES_2_5) + 
+                                    "}}}";
+
+  // Disabled for testing
+  //char* result = iot_client.update_shadow( shadow.c_str() , actionError );
 }
 
 // Initialize AWS connection
