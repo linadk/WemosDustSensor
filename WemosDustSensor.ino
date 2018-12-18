@@ -2,6 +2,9 @@
 #include <Adafruit_SSD1306.h>
 #include <ESP8266WiFi.h>
 
+#include <AmazonIOTClient.h>
+#include <ESP8266AWSImplementations.h>
+
 #include "PMS.h"
 
 PMS pms(Serial);
@@ -27,6 +30,12 @@ const char* password = "YOUR_WIFI_PASS";
 #define WIFI_CONNECT_ATTEMPTS_INTERVAL 500 // Wait 500ms intervals for wifi connection
 #define WIFI_CONNECT_MAX_ATTEMPTS 10 // Number of attempts/intervals to wait
 
+// AWS
+Esp8266HttpClient http_client;
+Esp8266DateTimeProvider dateTimeProvider;
+AmazonIOTClient iot_client;
+ActionError actionError;
+
 byte dispMode = MODE_TOTALS;
  
 void setup()   {
@@ -46,6 +55,15 @@ void setup()   {
   } else {
     OLED.println("Wifi [FAILED]");
   }
+  OLED.display();
+  delay(1000);
+
+  if(InitAWS()){
+    OLED.println("AWS [CONNECTED]");
+  } else {
+    OLED.println("AWS [FAILED]");
+  }
+  OLED.display();
   delay(1000);
  
   OLED.display(); //output 'display buffer' to screen  
@@ -188,4 +206,17 @@ bool InitWifi(){
   {
     return true;
   }
+}
+
+// Initialize AWS connection
+bool InitAWS(){
+  iot_client.setAWSRegion("us-east-1");
+  iot_client.setAWSEndpoint("amazonaws.com");
+  iot_client.setAWSDomain("xxx.amazonaws.com");
+  iot_client.setAWSPath("/things/XXX/shadow");
+  iot_client.setAWSKeyID("XXX");
+  iot_client.setAWSSecretKey("YYY");
+  iot_client.setHttpClient(&http_client);
+  iot_client.setDateTimeProvider(&dateTimeProvider);
+  return true;
 }
